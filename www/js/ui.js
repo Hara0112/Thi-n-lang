@@ -1,6 +1,6 @@
 'use strict';
 const UI=$('#ui');let tab='battle';const sel={0:S.zone[0],1:S.zone[1],2:S.zone[2]};
-const TABS=[['battle','⚔️','Chiến'],['realm','🧘','Tu Luyện'],['gacha','🎴','Triệu Hồi'],['hero','👤','Nhân Vật'],['bag','🎒','Túi'],['quest','📜','Nhiệm Vụ'],['talent','🌌','Kinh Mạch']];
+const TABS=[['battle','⚔️','Chiến'],['afk','💤','Treo Máy'],['realm','🧘','Tu Luyện'],['gacha','🎴','Triệu Hồi'],['hero','👤','Nhân Vật'],['bag','🎒','Túi'],['quest','📜','Nhiệm Vụ'],['talent','🌌','Kinh Mạch']];
 const ZONES=[{n:'Rừng Linh Khí',d:'Rơi Linh Khí Thạch (dùng đột phá)'},{n:'Hầm Thiết Tinh',d:'Rơi Thiết Tinh (cường hóa)'},{n:'Huyết Cốc',d:'Rơi nhiều trang bị & Thăng Phẩm Thạch'}];
 const TN=[['hp','Cường Thể','+5% Sinh Lực'],['atk','Kiếm Ý','+5% Công'],['def','Kim Cương Thân','+5% Phòng'],['cr','Thiên Nhãn','+1% Bạo kích'],['cd','Sát Ý','+4% Bạo thương'],['as','Phong Tốc','+2% Tốc đánh'],['dash','Thân Pháp','-0.06s hồi chiêu lướt']];
 function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity=0,1700);}
@@ -16,7 +16,7 @@ function vBattle(){return ZONES.map((z,i)=>'<div class="card"><b>'+z.n+'</b><sma
 function lv(i,d){sel[i]=cl(sel[i]+d,1,S.zone[i]);render();}
 function fight(i){startCombat('zone',i,sel[i]);}
 function fightTower(){startCombat('tower',0,S.tower);}
-function showResult(){C.on=false;cv.style.display='none';UI.style.display='flex';const L=C.loot,rw=C.rw||{gold:0,gems:0,m:{}};
+function showResult(){if(S.auto&&C.win){again();return;}C.on=false;cv.style.display='none';UI.style.display='flex';const L=C.loot,rw=C.rw||{gold:0,gems:0,m:{}};
  const mt=o=>Object.keys(o).map(k=>MN[k]+' x'+o[k]).join(', ');
  modal('<h2>'+(C.win?'🏆 Thắng lợi':'💀 Thất bại')+'</h2><div>Diệt '+L.kills+' yêu thú · +'+fmt(L.gold)+'🪙 nhặt được</div>'+(L.gear.length?'<div>Trang bị rơi: '+L.gear.map(iname).join(', ')+'</div>':'')+(Object.keys(L.m).length?'<div>'+mt(L.m)+'</div>':'')+(C.win?'<div>Thưởng thông quan: +'+fmt(rw.gold)+'🪙 +'+rw.gems+'💎 '+mt(rw.m)+'</div>':'')+'<div class="row"><button class="go" onclick="again()">Chiến tiếp</button><button onclick="closeModal()">Về menu</button></div>');save();}
 function again(){const k=C.kind,z=C.z,l=C.lvl;$('#modal').style.display='none';startCombat(k,z,k==='tower'?S.tower:l);}
@@ -74,6 +74,20 @@ function respec(){if(S.gems<100)return toast('Thiếu 💎');let n=0;for(const k
 function settings(){modal('<h3>Lưu / Tải dữ liệu</h3><small>Tự động lưu mỗi 5 giây. Sao chép đoạn dưới để sao lưu, hoặc dán vào để khôi phục.</small><textarea id="sv">'+JSON.stringify(S).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</textarea><div class="row"><button class="go" onclick="imp()">Nhập dữ liệu</button><button onclick="wipe()">Xóa save</button><button onclick="closeModal()">Đóng</button></div>');}
 function imp(){try{const p=JSON.parse($('#sv').value);if(p.v!==1)throw 0;S=Object.assign(defState(),p);save();sel[0]=S.zone[0];sel[1]=S.zone[1];sel[2]=S.zone[2];toast('Đã nhập save');closeModal();}catch(e){toast('Dữ liệu không hợp lệ');}}
 function wipe(){if(confirm('Xóa toàn bộ tiến trình?')){localStorage.removeItem(KEY);location.reload();}}
-const VIEWS={battle:vBattle,realm:vRealm,gacha:vGacha,hero:vHero,bag:vBag,quest:vQuest,talent:vTalent};
+const VIEWS={afk:vAfk,battle:vBattle,realm:vRealm,gacha:vGacha,hero:vHero,bag:vBag,quest:vQuest,talent:vTalent};
 setInterval(save,5000);document.addEventListener('visibilitychange',save);
+setInterval(()=>{if(tab==='afk'&&UI.style.display!=='none'&&$('#modal').style.display!=='flex')render();},30000);
+if(idleMin()>=2)tab='afk';
 render();
+
+/* ---------- Treo máy ---------- */
+function vAfk(){const r=idleRate(),m=idleMin(),h=Math.floor(m/60),mm=Math.floor(m%60);
+ return '<div class="card"><b>💤 Treo máy</b><small>Tích lũy tối đa 12 giờ, kể cả khi tắt game. Tốc độ tăng theo màn đã thông.</small><div>Đã tích lũy: <b>'+h+'g '+mm+'p</b>'+(m>=720?' (đầy)':'')+'</div><div>🪙'+fmt(r.gold*m)+' · '+Math.floor(r.qi*m)+' Linh Khí · '+Math.floor(r.ore*m)+' Thiết Tinh · '+Math.floor(r.asc*m)+' Thăng Phẩm · '+Math.min(24,Math.floor(m/30))+' trang bị</div><div class="row"><button class="go" onclick="claimIdle()">Nhận thưởng</button><button onclick="fastIdle()">Nhận nhanh 2 giờ (50💎)</button></div></div>'+
+ '<div class="card"><b>Mỗi giờ</b><small>🪙'+fmt(r.gold*60)+' · '+Math.floor(r.qi*60)+' Linh Khí · '+Math.floor(r.ore*60)+' Thiết Tinh</small></div>'+
+ '<div class="card"><b>🤖 Tự động đánh</b><small>Bật nút 🤖 góc trên bên phải khi chiến đấu (hoặc ở đây): nhân vật tự di chuyển, đánh, né đòn và dùng kỹ năng; thắng sẽ tự vào trận tiếp. Chạm joystick bất cứ lúc nào để tự điều khiển.</small><div class="row"><button onclick="toggleAuto()">'+(S.auto?'Đang BẬT':'Đang TẮT')+'</button></div></div>';}
+function toggleAuto(){S.auto=!S.auto;save();render();}
+function idleGive(m){const r=idleRate();give({gold:Math.floor(r.gold*m),qi:Math.floor(r.qi*m),ore:Math.floor(r.ore*m),asc:Math.floor(r.asc*m)});}
+function claimIdle(){const m=idleMin();if(m<1)return toast('Chưa có gì để nhận');idleGive(m);
+ for(let i=0;i<Math.min(24,Math.floor(m/30))&&S.gear.length<250;i++)S.gear.push(genGear(Math.max(1,Math.ceil(S.zone[2]/2))));
+ S.idle.t=Date.now();save();toast('Đã nhận thưởng treo máy');render();}
+function fastIdle(){if(S.gems<50)return toast('Thiếu 💎');S.gems-=50;idleGive(120);save();toast('Đã nhận thưởng 2 giờ');render();}
