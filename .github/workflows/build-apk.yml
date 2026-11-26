@@ -1,0 +1,42 @@
+name: Build APK
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Tạo package.json và cấu hình Capacitor
+        run: |
+          echo "dùng thư mục www có sẵn"
+          cat > package.json <<'JSON'
+          {"name":"thien-kiep-luc","version":"1.0.0","private":true,
+           "dependencies":{"@capacitor/android":"^6.2.0","@capacitor/core":"^6.2.0"},
+           "devDependencies":{"@capacitor/cli":"^6.2.0"}}
+          JSON
+          cat > capacitor.config.json <<'JSON'
+          {"appId":"com.thienkiep.game","appName":"Thien Kiep Luc","webDir":"www","server":{"androidScheme":"https"},"backgroundColor":"#07060d"}
+          JSON
+      - run: npm install
+      - run: npx cap add android
+      - run: npx cap sync android
+      - name: Khóa màn hình ngang
+        run: sed -i 's/<activity /<activity android:screenOrientation="sensorLandscape" /' android/app/src/main/AndroidManifest.xml
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ThienKiepLuc-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
