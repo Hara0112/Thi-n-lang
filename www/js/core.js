@@ -22,7 +22,7 @@ const SLN={weapon:'Vũ Khí',armor:'Giáp',relic:'Pháp Khí'};
 const GN={weapon:['Thiết Kiếm','Linh Kiếm','Huyền Phong Kiếm','Thiên Uy Kiếm'],armor:['Vải Thô','Linh Y','Huyền Giáp','Thiên Long Giáp'],relic:['Ngọc Bội','Linh Phù','Huyền Ấn','Thiên Cơ Đỉnh']};
 const MN={qi:'Linh Khí Thạch',ore:'Thiết Tinh',asc:'Thăng Phẩm Thạch',core:'Kết Đan Thạch'};
 const KEY='tkl_save_v1';
-const defState=()=>({v:1,gold:800,gems:3200,tickets:5,mats:{qi:30,ore:30,asc:3,core:0},realm:0,tp:0,talents:{},heroes:{h0:{star:0,shards:0}},hero:'h0',gear:[],eq:{weapon:null,armor:null,relic:null},pity:{l:0,e:0},zone:{0:1,1:1,2:1},tower:1,q:{p:{},c:{},cl:{},day:''},nid:1,auto:false,idle:{t:Date.now()}});
+const defState=()=>({v:1,gold:800,gems:3200,tickets:5,mats:{qi:30,ore:30,asc:3,core:0},realm:0,tp:0,talents:{},heroes:{h0:{star:0,shards:0}},hero:'h0',gear:[],eq:{weapon:null,armor:null,relic:null},pity:{l:0,e:0},zone:{0:1,1:1,2:1},tower:1,q:{p:{},c:{},cl:{},day:''},nid:1,auto:false,gfx:'high',hist:[],idle:{t:Date.now()}});
 function load(){const d=defState();try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1)return Object.assign(d,s);}catch(e){}return d;}
 let S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -32,14 +32,14 @@ function genGear(ilv,minR=0,slot){const x=Math.random()*100;let r=x<2?3:x<12?2:x
  const main=slot==='weapon'?'atk':slot==='armor'?'hp':['cr','cd','aspd'][RI(0,2)];
  const pool=['atk','hp','def','cr','cd','aspd'].filter(k=>k!==main),aff=[];
  while(aff.length<r){const k=pool.splice(RI(0,pool.length-1),1)[0];aff.push({k,b:AB[k]});}
- return{id:S.nid++,slot,rar:r,ilv,lv:0,asc:0,main:{k:main,b:MB[main]},aff,n:GN[slot][r]};}
+ return{id:S.nid++,slot,rar:r,ilv,lv:0,asc:0,set:r>=1?RI(0,CFG.sets.length-1):-1,lk:false,main:{k:main,b:MB[main]},aff,n:GN[slot][r]};}
 const gv=(it,a)=>a.b*(FLAT[a.k]?(1+.25*(it.ilv-1))*(1+.5*it.rar):(1+.3*it.rar))*(1+.12*it.lv)*(1+.2*it.asc);
 const fv=(k,v)=>FLAT[k]?Math.round(v):(v*100).toFixed(1)+'%';
-function stats(){const h=hero(S.hero),hs=S.heroes[S.hero],k=(1+.45*S.realm)*(1+.15*hs.star),T=n=>S.talents[n]||0;
+function stats(){const h=hero(S.hero),hs=S.heroes[S.hero],k=(1+CFG.realm.statPerRealm*S.realm)*(1+CFG.realm.starBonus*hs.star),T=n=>S.talents[n]||0;
  let hp=300*h.m.hp*k,atk=25*h.m.atk*k,def=5*h.m.def*k,as=0,cr=.05,cd=1.5;
  for(const sl in S.eq){const it=item(S.eq[sl]);if(!it)continue;for(const a of [it.main,...it.aff]){const v=gv(it,a);
   if(a.k==='atk')atk+=v;else if(a.k==='hp')hp+=v;else if(a.k==='def')def+=v;else if(a.k==='cr')cr+=v;else if(a.k==='cd')cd+=v;else as+=v;}}
- return{hp:hp*(1+.05*T('hp')),atk:atk*(1+.05*T('atk')),def:def*(1+.05*T('def')),cr:Math.min(1,cr+.01*T('cr')),cd:cd+.04*T('cd'),aspd:1+as+.02*T('as'),dcd:Math.max(.5,1.2-.06*T('dash')),col:h.c};}
+ const sb=setBonus().b;return{hp:hp*(1+.05*T('hp')+sb.hpp),atk:atk*(1+.05*T('atk')+sb.atkp),def:def*(1+.05*T('def')+sb.defp),cr:Math.min(1,cr+.01*T('cr')+sb.cr),cd:cd+.04*T('cd')+sb.cd,aspd:1+as+.02*T('as')+sb.aspd,dcd:Math.max(.5,1.2-.06*T('dash')),col:h.c};}
 const power=s=>Math.round(s.atk*3+s.hp/4+s.def*4);
 function track(t,n=1){S.q.p[t]=(S.q.p[t]||0)+n;S.q.c[t]=(S.q.c[t]||0)+n;}
 function checkDay(){const d=new Date().toDateString();if(S.q.day!==d){S.q.day=d;S.q.c={};for(const k in S.q.cl)if(k[0]==='d')delete S.q.cl[k];save();}}
@@ -48,12 +48,19 @@ const DAILY=[{id:'d1',t:'kill',n:40,tx:'Diệt 40 yêu thú',r:{gold:500,gems:30
 function give(r){for(const k in r){if(k==='gold'||k==='gems'||k==='tickets')S[k]+=r[k];else S.mats[k]=(S.mats[k]||0)+r[k];}}
 const rwText=r=>Object.keys(r).map(k=>({gold:'🪙',gems:'💎',tickets:'🎫'}[k]?r[k]+({gold:'🪙',gems:'💎',tickets:'🎫'}[k]):r[k]+' '+MN[k])).join(' · ');
 if(!S.gear.length){const w=genGear(1,0,'weapon');S.gear.push(w);S.eq.weapon=w.id;save();}
-function pull1(){const p=S.pity;p.l++;p.e++;let pl=.02;if(p.l>=75)pl+=(p.l-74)*.06;if(p.l>=90)pl=1;
- const x=Math.random();const r=x<pl?3:(p.e>=10||x<pl+.10)?2:x<pl+.43?1:0;
+function pull1(b,minR=0){const p=S.pity,G=CFG.gacha;p.l++;p.e++;let pl=G.rates.L;if(p.l>=G.softPity)pl+=(p.l-G.softPity+1)*G.softStep;if(p.l>=G.hardPity)pl=1;
+ const x=Math.random();let r=x<pl?3:(p.e>=G.epicPity||x<pl+G.rates.E)?2:x<pl+G.rates.E+G.rates.R?1:0;r=Math.max(r,minR);
  if(r===3)p.l=0;if(r>=2)p.e=0;
- const pool=HEROES.filter(h=>h.r===r),h=pool[RI(0,pool.length-1)];
- if(S.heroes[h.id]){const sh=[5,10,20,40][r];S.heroes[h.id].shards+=sh;return{h,dup:true,sh};}
- S.heroes[h.id]={star:0,shards:0};return{h,dup:false,sh:0};}
+ const pool=HEROES.filter(h=>h.r===r);let h=pool[RI(0,pool.length-1)],up=false;
+ if(r===3&&b&&b.up){const u=hero(b.up);if(p.g||Math.random()<G.rateUp){h=u;p.g=false;up=true;}else{const o=pool.filter(z=>z.id!==u.id);h=o[RI(0,o.length-1)];p.g=true;}}
+ S.hist=S.hist||[];S.hist.unshift({n:h.n,r});S.hist.length=Math.min(S.hist.length,30);
+ if(S.heroes[h.id]){const sh=G.dupShards[r];S.heroes[h.id].shards+=sh;return{h,dup:true,sh,up};}
+ S.heroes[h.id]={star:0,shards:0};return{h,dup:false,sh:0,up};}
 
-const idleMin=()=>Math.min(720,Math.max(0,(Date.now()-S.idle.t)/60000));
+const idleMin=()=>Math.min(CFG.idle.capMin,Math.max(0,(Date.now()-S.idle.t)/60000));
 function idleRate(){const a=S.zone[0],b=S.zone[1],c=S.zone[2],rm=1+.1*S.realm;return{gold:Math.floor(15*(1+.25*(a+b+c-3))*rm),qi:.6+.12*a,ore:.5+.1*b,asc:.03+.01*c};}
+
+function setBonus(){const c={},b={atkp:0,hpp:0,defp:0,cr:0,cd:0,aspd:0};
+ for(const sl in S.eq){const it=item(S.eq[sl]);if(it&&it.set>=0)c[it.set]=(c[it.set]||0)+1;}
+ for(const k in c){const s=CFG.sets[k];if(c[k]>=2)for(const x in s.b2)b[x]+=s.b2[x];if(c[k]>=3)for(const x in s.b3)b[x]+=s.b3[x];}
+ return{b,c};}
