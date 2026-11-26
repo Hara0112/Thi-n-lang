@@ -22,7 +22,7 @@ const SLN={weapon:'Vũ Khí',armor:'Giáp',relic:'Pháp Khí'};
 const GN={weapon:['Thiết Kiếm','Linh Kiếm','Huyền Phong Kiếm','Thiên Uy Kiếm'],armor:['Vải Thô','Linh Y','Huyền Giáp','Thiên Long Giáp'],relic:['Ngọc Bội','Linh Phù','Huyền Ấn','Thiên Cơ Đỉnh']};
 const MN={qi:'Linh Khí Thạch',ore:'Thiết Tinh',asc:'Thăng Phẩm Thạch',core:'Kết Đan Thạch'};
 const KEY='tkl_save_v1';
-const defState=()=>({v:1,gold:800,gems:3200,tickets:5,mats:{qi:30,ore:30,asc:3,core:0},realm:0,tp:0,talents:{},heroes:{h0:{star:0,shards:0}},hero:'h0',gear:[],eq:{weapon:null,armor:null,relic:null},pity:{l:0,e:0},zone:{0:1,1:1,2:1},tower:1,q:{p:{},c:{},cl:{},day:''},nid:1});
+const defState=()=>({v:1,gold:800,gems:3200,tickets:5,mats:{qi:30,ore:30,asc:3,core:0},realm:0,tp:0,talents:{},heroes:{h0:{star:0,shards:0}},hero:'h0',gear:[],eq:{weapon:null,armor:null,relic:null},pity:{l:0,e:0},zone:{0:1,1:1,2:1},tower:1,q:{p:{},c:{},cl:{},day:''},nid:1,auto:false,idle:{t:Date.now()}});
 function load(){const d=defState();try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===1)return Object.assign(d,s);}catch(e){}return d;}
 let S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -54,3 +54,6 @@ function pull1(){const p=S.pity;p.l++;p.e++;let pl=.02;if(p.l>=75)pl+=(p.l-74)*.
  const pool=HEROES.filter(h=>h.r===r),h=pool[RI(0,pool.length-1)];
  if(S.heroes[h.id]){const sh=[5,10,20,40][r];S.heroes[h.id].shards+=sh;return{h,dup:true,sh};}
  S.heroes[h.id]={star:0,shards:0};return{h,dup:false,sh:0};}
+
+const idleMin=()=>Math.min(720,Math.max(0,(Date.now()-S.idle.t)/60000));
+function idleRate(){const a=S.zone[0],b=S.zone[1],c=S.zone[2],rm=1+.1*S.realm;return{gold:Math.floor(15*(1+.25*(a+b+c-3))*rm),qi:.6+.12*a,ore:.5+.1*b,asc:.03+.01*c};}
